@@ -3,6 +3,7 @@ from transformers.dynamic_module_utils import get_imports
 from PIL import Image, ImageDraw, UnidentifiedImageError
 from unittest.mock import patch
 from io import BytesIO
+from glob import glob
 from tqdm import tqdm
 
 import matplotlib.patches as patches
@@ -323,15 +324,19 @@ def _process_image(
             return results, output_image
 
         case _:
-            gr.Warning("Unrecognized Task...")
-            return "", None
+            raise gr.Error("Unrecognized Task...")
 
 
-def _grab_images(folder: str) -> dict[str, Image.Image]:
+def _grab_images(folder: str, recursive: bool) -> dict[str, Image.Image]:
     images = {}
+    files = (
+        glob(os.path.join(folder, "**", "*"), recursive=True)
+        if recursive
+        else [os.path.join(folder, f) for f in os.listdir(folder)]
+    )
 
-    for file in [os.path.join(folder, f) for f in os.listdir(folder)]:
-        if file.endswith("_bbox.png"):
+    for file in files:
+        if os.path.isdir(file) or file.endswith("_bbox.png"):
             continue
         try:
             image = Image.open(file)
@@ -343,11 +348,11 @@ def _grab_images(folder: str) -> dict[str, Image.Image]:
 
 
 @spaces.GPU(gpu_objects=[GO], manual_load=False)
-def process_image(i_dir: str, task: str, text: str, mdl: str):
+def process_image(i_dir: str, recursive: bool, task: str, text: str, mdl: str):
     if not os.path.isdir(i_dir):
         raise gr.Error(f'Path "{i_dir}" is not a folder...')
 
-    images = _grab_images(i_dir)
+    images = _grab_images(i_dir, recursive)
 
     if len(images.keys()) == 0:
         raise gr.Error(f'Folder "{i_dir}" is empty...')
@@ -407,8 +412,10 @@ with gr.Blocks(analytics_enabled=False).queue() as demo:
             )
 
         with gr.Column(variant="compact"):
-            input_dir = gr.Textbox(label="Input Directory", lines=1, max_lines=1)
-            submit_btn = gr.Button(value="Submit", variant="primary")
+            input_dir = gr.Textbox(label="Working Directory", lines=1, max_lines=1)
+            with gr.Row(variant="panel"):
+                run_btn = gr.Button(value="Run", variant="primary", scale=2)
+                recursive = gr.Checkbox(True, label="Recursive", scale=1)
 
     def _update_tasks(choice: str):
         if choice == "Single Task":
@@ -423,10 +430,11 @@ with gr.Blocks(analytics_enabled=False).queue() as demo:
         show_progress="hidden",
     )
 
-    submit_btn.click(
+    run_btn.click(
         fn=process_image,
         inputs=[
             input_dir,
+            recursive,
             task_selector,
             text_input,
             model_selector,
