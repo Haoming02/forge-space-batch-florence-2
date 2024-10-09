@@ -17,6 +17,7 @@ import os
 
 import spaces
 
+INTERRUPT: bool = None
 
 COLOR_MAP: tuple[str] = (
     "blue",
@@ -357,7 +358,14 @@ def process_image(i_dir: str, recursive: bool, task: str, text: str, mdl: str):
     if len(images.keys()) == 0:
         raise gr.Error(f'Folder "{i_dir}" is empty...')
 
+    global INTERRUPT
+    INTERRUPT = False
+
     for filename, image in tqdm(images.items()):
+        if INTERRUPT:
+            gr.Info("Process Stopped")
+            return
+
         file, ext = os.path.splitext(filename)
         res, img = _process_image(image, task, text, mdl)
 
@@ -412,16 +420,28 @@ with gr.Blocks(analytics_enabled=False).queue() as demo:
             )
 
         with gr.Column(variant="compact"):
-            input_dir = gr.Textbox(label="Working Directory", lines=1, max_lines=1)
             with gr.Row(variant="panel"):
-                run_btn = gr.Button(value="Run", variant="primary", scale=2)
+                input_dir = gr.Textbox(
+                    placeholder="Working Directory",
+                    lines=1,
+                    max_lines=1,
+                    scale=2,
+                    container=False,
+                )
                 recursive = gr.Checkbox(True, label="Recursive", scale=1)
+            with gr.Row(variant="panel"):
+                run_btn = gr.Button(value="Run", variant="primary")
+                stop_btn = gr.Button(value="Interrupt", variant="stop")
 
     def _update_tasks(choice: str):
         if choice == "Single Task":
             return gr.Dropdown(choices=single_task_list, value="More Detailed Caption")
         else:
             return gr.Dropdown(choices=cascased_tasks_list, value="Caption + Grounding")
+
+    def _interrupt():
+        global INTERRUPT
+        INTERRUPT = True
 
     task_type.change(
         fn=_update_tasks,
@@ -440,6 +460,8 @@ with gr.Blocks(analytics_enabled=False).queue() as demo:
             model_selector,
         ],
     )
+
+    stop_btn.click(fn=_interrupt, queue=False)
 
 
 if __name__ == "__main__":
