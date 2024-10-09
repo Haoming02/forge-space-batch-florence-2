@@ -79,9 +79,7 @@ with spaces.capture_gpu_object() as GO:
         models: dict[str, AutoModelForCausalLM] = {
             "microsoft/Florence-2-large": AutoModelForCausalLM.from_pretrained(
                 "microsoft/Florence-2-large", trust_remote_code=True
-            )
-            .to("cuda")
-            .eval(),
+            ).to("cuda").eval()
         }
 
     processors: dict[str, AutoProcessor] = {
@@ -363,7 +361,7 @@ def process_image(i_dir: str, recursive: bool, task: str, text: str, mdl: str):
 
     for filename, image in tqdm(images.items()):
         if INTERRUPT:
-            gr.Info("Process Stopped")
+            gr.Info("Process Interrupted")
             return
 
         file, ext = os.path.splitext(filename)
