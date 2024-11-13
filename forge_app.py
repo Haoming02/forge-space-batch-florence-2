@@ -65,23 +65,14 @@ cascased_tasks_list: tuple[str] = (
 )
 
 
-def _fixed_get_imports(filename: str | os.PathLike) -> list[str]:
-    if not str(filename).endswith("modeling_florence2.py"):
-        return get_imports(filename)
-    imports = get_imports(filename)
-    imports.remove("flash_attn")
-    return imports
-
-
 with spaces.capture_gpu_object() as GO:
-
-    with patch("transformers.dynamic_module_utils.get_imports", _fixed_get_imports):
-        models: dict[str, AutoModelForCausalLM] = {
-            "microsoft/Florence-2-large": AutoModelForCausalLM.from_pretrained(
-                "microsoft/Florence-2-large", trust_remote_code=True
-            ).to("cuda").eval()
-        }
-
+    models: dict[str, AutoModelForCausalLM] = {
+        "microsoft/Florence-2-large": AutoModelForCausalLM.from_pretrained(
+            "microsoft/Florence-2-large", trust_remote_code=True
+        )
+        .to("cuda")
+        .eval()
+    }
     processors: dict[str, AutoProcessor] = {
         "microsoft/Florence-2-large": AutoProcessor.from_pretrained(
             "microsoft/Florence-2-large", trust_remote_code=True
